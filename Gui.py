@@ -21,7 +21,7 @@ class Gui():
                 scaleY.set(0)
 
         v = StringVar(master, "0")
-        values = {"Manuel" : "0","Carré" : "1","Cercle" : "2","vagabond droit" : "3"}
+        values = {"Manuel" : "0","InitPos" : "1","Carré" : "2","Cercle" : "3","vagabond droit" : "4"}
 
         for (text, value) in values.items():
             Radiobutton(master, text = text, command=sel,variable = v,

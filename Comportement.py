@@ -1,6 +1,10 @@
 import numpy as np
 from Utils import *
-from random import randint
+
+from Comportements.Carre import Carre
+from Comportements.Cercle import Cercle
+from Comportements.VagabondDroit import VagabondDroit
+from Comportements.InitPos import InitPos
 
 class Comportement():
     def __init__(self):
@@ -22,33 +26,58 @@ class Comportement():
         self.carre = None
         self.cercle = None
         self.vagabondDroit = None
+        self.initPos = None
+
+        self.fc = ""
 
     def maj(self):
         if(self.enPause):
             self.compteurPause(self.dureePause)
         else :
-            if(self.id==0):
+            if(self.id==0): # ARRET
                 if(self.newId) :
                     self.vX = 0
                     self.vY = 0
-            if(self.id==1):
+            if(self.id == 1): # Initialisation de la position
+                if(self.newId):
+                    self.initPos = InitPos(self.resolution)
+                self.initPos.fc = self.fc
+                self.vX,self.vY,fin = self.initPos.maj(self.vX,self.vY,self.xPos,self.yPos)
+
+                if (fin) :
+                    self.newId = True
+                    self.id = 0 # à changer ...
+
+            if(self.id==2): # Carré
                 if(self.newId) :
                     self.carre = Carre(self.resolution) # première occurence, on créé l'instance carré
                     self.carre.setParam(800,500,1000) # accel,vitesse,taille
-                vX,vY,self.dureePause = self.carre.maj(self.vX,self.vY,self.xPos,self.yPos) # maj du comportement carré, avec renseignement sur la vitesse et la position en cours
-                self.vX,self.vY = self.miseEnForme(vX,vY)
-            if(self.id == 2):
+                self.vX,self.vY,self.dureePause = self.carre.maj(self.vX,self.vY,self.xPos,self.yPos) # maj du comportement carré, avec renseignement sur la vitesse et la position en cours
+
+            if(self.id == 3): # Cercle
                 if(self.newId) :
                     self.cercle = Cercle(self.resolution) # première occurence, on créé l'instance
                     self.cercle.setParam(400,1000,0) # vitesse,taille,angle origine
-                vX,vY,self.dureePause = self.cercle.maj() # maj du comportement cercle
-                self.vX,self.vY = self.miseEnForme(vX,vY)
-            if(self.id == 3):
+                self.vX,self.vY,self.dureePause = self.cercle.maj() # maj du comportement cercle
+
+            if(self.id == 4): # vagabond droit
                 if(self.newId) :
                     self.vagabondDroit = VagabondDroit(self.resolution) # première occurence, on créé l'instance
                     self.vagabondDroit.setParam(0,0,0)
-                vX,vY,self.dureePause = self.vagabondDroit.maj(self.vX,self.vY,self.xPos,self.yPos) # maj du comportement
-                self.vX,self.vY = self.miseEnForme(vX,vY)
+                self.vX,self.vY,self.dureePause = self.vagabondDroit.maj(self.vX,self.vY,self.xPos,self.yPos) # maj du comportement
+
+            if(self.fc != "") : # sécurité sur les fins de course, il n'y a plus de comportement
+                if(self.fc == "G1") : self.vX = 100
+                if(self.fc == "G0") : self.vX = 0
+                if(self.fc == "D1") : self.vX = -100
+                if(self.fc == "D0") : self.vX = 0
+                if(self.fc == "H1") : self.vY = 100
+                if(self.fc == "H0") : self.vY = 0
+                if(self.fc == "B1") : self.vY = -100
+                if(self.fc == "B0") : self.vY = 0
+            self.fc = "" # fin de course pris en compte, on réinitialise.
+
+            self.vX,self.vY = self.miseEnForme(self.vX,self.vY)
 
             if (self.dureePause>0) :
                 self.enPause = True
@@ -87,104 +116,6 @@ class Comportement():
         else :
             self.indexPause += 1
 
-class Cercle():
-    def __init__(self,res):
-        self.taille = 1000
-        self.vMax = 500
-        self.angle = 0
-
-    def setParam(self,vMax,taille,angleOrigine):
-        self.dAngle = 0.0228*vMax/taille # très approximatif ...
-        self.vMax = vMax
-        self.angle = angleOrigine
-
-    def maj(self):
-        self.angle += self.dAngle
-        vX = self.vMax * np.cos(self.angle)
-        vY = self.vMax * np.sin(self.angle)
-        return vX,vY,0
-
-class Carre():
-    def __init__(self,res):
-        self.phase = -1
-        self.taille = 1000
-        self.aMax = 1000
-        self.vMax = 500
-        self.goto = Goto(res)
-
-    def setParam(self,aMax,vMax,taille):
-        self.taille = taille
-        self.aMax = aMax
-        self.vMax = vMax
-
-    def maj(self,vX_old,vY_old,xPos,yPos):
-        dureePause = 0
-        if(self.phase == -1):
-            self.goto.setParam(self.aMax,self.vMax,self.taille+xPos,yPos)
-            self.phase = 0
-            print("Carré Phase = " + str(self.phase))
-        if(self.phase == 0):
-            vX,vY = self.goto.maj(vX_old,vY_old,xPos,yPos)
-            if(vX == 0 and vY == 0): # fin de la phase quand les vitesses sont redevenues nulles
-                self.goto.init()
-                self.goto.setParam(self.aMax,self.vMax,xPos,self.taille+yPos)
-                self.phase = 1
-                print("Carré Phase = " + str(self.phase))
-        if(self.phase == 1):
-            vX,vY = self.goto.maj(vX_old,vY_old,xPos,yPos)
-            if(vX == 0 and vY == 0):
-                self.goto.init()
-                self.goto.setParam(self.aMax,self.vMax,xPos-self.taille,yPos)
-                self.phase = 2
-                print("Carré Phase = " + str(self.phase))
-        if(self.phase == 2):
-            vX,vY = self.goto.maj(vX_old,vY_old,xPos,yPos)
-            if(vX == 0 and vY == 0):
-                self.goto.init()
-                self.goto.setParam(self.aMax,self.vMax,xPos,yPos-self.taille)
-                self.phase = 3
-                print("Carré Phase = " + str(self.phase))
-        if(self.phase == 3):
-            vX,vY = self.goto.maj(vX_old,vY_old,xPos,yPos)
-            if(vX == 0 and vY == 0):
-                self.phase = 4
-                print("Carré Phase = " + str(self.phase))
-        if(self.phase == 4):
-            self.goto.init()
-            vX = 0
-            vY = 0
-            dureePause = 30
-            self.phase = -1
-        return vX,vY,dureePause
-
-
-class VagabondDroit():
-
-    def __init__(self,res):
-        self.phase = -1
-        self.goto = Goto(res)
-    def setParam(self,p0,p1,p2):
-        None
-    def maj(self,vX_old,vY_old,xPos,yPos):
-        dureePause = 0
-        if(self.phase == -1) :
-            self.vMax = randint(200, 1800)
-            self.xCible = randint(30,10000)
-            self.yCible = randint(30,5000)
-            self.goto.setParam(1000,self.vMax,self.xCible,self.yCible)
-            self.phase = 0
-            print("Vagabond cible x = " + str(self.xCible),
-                "y = " + str(self.yCible),
-                "vMax = " + str(self.vMax))
-        if(self.phase == 0):
-            vX,vY = self.goto.maj(vX_old,vY_old,xPos,yPos)
-            if(vX == 0 and vY == 0): # fin de la phase quand les vitesses sont redevenues nulles
-                self.goto.init()
-                self.phase = 1
-        if (self.phase == 1) :
-            dureePause = 30
-            self.phase = -1
-        return vX,vY,dureePause
 
 if __name__ == '__main__':
     import time

@@ -30,15 +30,48 @@ class Pilote :
         self.xValid = False
         self.yValid = False
         self.axesXetY = False
+        self.octetFc = 0
         self.demarrage()
+
+    def gestionFc(self,oldOctetFc,octetFc):
+        # recalage des positions en fin de fin de course
+
+        if((octetFc >> 0) & 1) : # à gauche
+            self.comportement.fc = "G1"
+        elif ((oldOctetFc >> 0) & 1) :
+            self.comportement.fc = "G0"
+            self.xPos = 0
+            self.comportement.xPos = self.xPos
+
+        if((octetFc >> 1) & 1) : # à droite
+            self.comportement.fc = "D1"
+        elif ((oldOctetFc >> 1) & 1) :
+            self.comportement.fc = "D0"
+            self.xPos = self.widthFou
+            self.comportement.xPos = self.xPos
+
+        if((octetFc >> 2) & 1) : # en haut
+            self.comportement.fc = "H1"
+        elif ((oldOctetFc >> 2) & 1) :
+            self.comportement.fc = "H0"
+            self.yPos = 0
+            self.comportement.yPos = self.yPos
+
+        if((octetFc >> 3) & 1) : # en bas
+            self.comportement.fc = "B1"
+        elif ((oldOctetFc >> 3) & 1) :
+            self.comportement.fc = "B0"
+            self.yPos = self.heightFou
+            self.comportement.yPos = self.yPos
 
     def topInSerie(self,octet) :
         oldVX,oldVY = self.comportement.vX,self.comportement.vY
-
+        if(((octet[0] >> 7) & 1)) : axe = "Y"
+        else : axe = "X"
         if (oldVX != 0  and oldVY !=0) : # les vitesses des deux axes sont à prendre en compte
             self.axesXetY = True
-            if(octet==b'\x00') : self.xValid = True
-            if(octet==b'\x80') : self.yValid = True
+            if(axe == "X") : self.xValid = True
+            if(axe == "Y") : self.yValid = True
             if(self.xValid == False or self.yValid == False):
                 self.comportement.maj() # maj une fois sur deux quand l'un des axe n'a pas encore été validé
             if(self.xValid == True and self.yValid == True): # réinitialisation des validations
@@ -52,6 +85,12 @@ class Pilote :
             self.yValid = False
 
         forceX,forceY = False,False
+
+        # Prise en compte des fins de course
+        oldOctetFc = self.octetFc
+        self.octetFc = octet[0]&0b1111
+        self.gestionFc(oldOctetFc,self.octetFc)
+
         vX,vY = self.comportement.vX,self.comportement.vY
         if(oldVX != 0 and  vX== 0 and oldVY == 0 and vY!=0): # pour éviter un arrêt intempestif
             forceY = True
@@ -65,10 +104,10 @@ class Pilote :
             forceX = True
         if(oldVY == 0 and vY != 0): # pour relancer l'axe X
             forceY = True
-        if(octet==b'\x00' or forceX):
-            self.envoyer('X')
 
-        if(octet==b'\x80' or forceY):
+        if(axe == "X" or forceX):
+            self.envoyer('X')
+        if(axe == "Y" or forceY):
             self.envoyer('Y')
 
         if(self.comportement.enPause) :
